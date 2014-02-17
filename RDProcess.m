@@ -1,15 +1,18 @@
 #import <grp.h>
 #import <pwd.h>
 #import <unistd.h>
+#import <libproc.h>
 #import <sys/sysctl.h>
 #import <mach-o/dyld.h>
+#import <sys/proc_info.h>
+
 #import "RDProcess.h"
 #import "apple_sandbox.h"
 
 
 #define RDSymbolNameStr(symbol) (CFSTR("_"#symbol))
 #define kPasswdBufferSize (128)
-#define kSandboxContainerPathBufferSize (1024)
+#define kSandboxContainerPathBufferSize (2024)
 #define kLaunchServicesMagicConstant (-2) // or (-1), the difference is unknown
 
 static CFTypeRef (*LSCopyApplicationInformation)(int, const void*, CFArrayRef) = NULL;
@@ -53,7 +56,7 @@ static const CFStringRef kLaunchServicesBundleID = CFSTR("com.apple.LaunchServic
 
 	NSLock *lock;
 }
-
++ (BOOL)_checkIfWeCanAccessPIDAtTheMoment: (pid_t)a_pid;
 - (void)_requestOwnerNames;
 - (BOOL)_requestProcessArgumentsAndEnvironment;
 - (BOOL)_checkSandboxOperation: (const char *)operation forItemAtPath: (NSString *)item_path;
@@ -66,10 +69,14 @@ static const CFStringRef kLaunchServicesBundleID = CFSTR("com.apple.LaunchServic
 @implementation RDProcess
 
 
-- (id)initWithPID: (pid_t)aPid
+- (id)initWithPID: (pid_t)a_pid
 {
+	BOOL pid_is_available = [[self class] _checkIfWeCanAccessPIDAtTheMoment: a_pid];
+	if (NO == pid_is_available) {
+		return (nil);
+	}
 	if ((self = [super init])) {
-		_pid = aPid;
+		_pid = a_pid;
 		_uid = -1;
 		_owner_user_name = nil;
 		_owner_full_user_name = nil;
@@ -78,6 +85,26 @@ static const CFStringRef kLaunchServicesBundleID = CFSTR("com.apple.LaunchServic
 	}
 
 	return (self);
+}
+
++ (BOOL)_checkIfWeCanAccessPIDAtTheMoment: (pid_t)a_pid
+{
+	if (a_pid < 0) return NO;
+
+	int err = kill(a_pid, 0);
+	switch (err) {
+		case (-1): {
+			NSLog(@"Could not access pid (%d)", a_pid);
+			return (errno != ESRCH);
+		}
+		case (0): {
+			return YES;
+		}
+		default: {
+			NSLog(@"Pid %d doesn't exist", a_pid);
+			return NO;
+		}
+	}
 }
 
 - (id)description
@@ -91,10 +118,9 @@ static const CFStringRef kLaunchServicesBundleID = CFSTR("com.apple.LaunchServic
 {
 	[self _fetchNewDataFromLaunchServicesWithAtLeastOneKey: kLSDisplayNameKey];
 
-	/**
-	 * @todo: check if we actually have a name, otherwise get it via
-	 * proc_pidpath().
-	 */
+	if (!_process_name) {
+		_process_name = [self.executablePath lastPathComponent];
+	}
 
 	return _process_name;
 }
@@ -162,10 +188,18 @@ static const CFStringRef kLaunchServicesBundleID = CFSTR("com.apple.LaunchServic
 {
 	[self _fetchNewDataFromLaunchServicesWithAtLeastOneKey: kLSExecutablePathKey];
 
-	/**
-	 * @todo: check if we actually have a path, otherwise get it via
-	 * proc_pidpath() or argv[0].
-	 */
+	if (!_executable_path) {
+		_executable_path = [[self.launchArguments objectAtIndex: 0] lastPathComponent];
+	}
+
+	if (!_executable_path) {
+		char *buf = malloc(sizeof(*buf) * kSandboxContainerPathBufferSize);
+		int err = proc_pidpath(self.pid, buf, kSandboxContainerPathBufferSize);
+		if (err) {
+			_executable_path = [NSString stringWithUTF8String: buf];
+		}
+		free(buf);
+	}
 
 	return _executable_path;
 }
@@ -379,7 +413,6 @@ static const CFStringRef kLaunchServicesBundleID = CFSTR("com.apple.LaunchServic
  */
 - (BOOL)isSandboxedByOSX
 {
-	/* Check only if a pid was changed */
 	static pid_t old_pid = -1;
 	pid_t new_pid = self.pid;
 	if (old_pid != new_pid) {
