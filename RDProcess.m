@@ -163,7 +163,8 @@ static const CFStringRef kLaunchServicesBundleID = CFSTR("com.apple.LaunchServic
 		info.processInfoLength = sizeof(&info);
 		int err = GetProcessInformation(&psn, &info);
 		if (err != KERN_SUCCESS) {
-			NSLog(@"GetProcessInformation returned %d: %s", err, GetMacOSStatusCommentString(err));
+			NSLog(@"GetProcessInformation returned %d: %@",
+				err, [NSError errorWithDomain: NSOSStatusErrorDomain code: err userInfo: nil]);
 			continue;
 		}
 
