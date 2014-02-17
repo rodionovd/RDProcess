@@ -24,6 +24,12 @@ static CFStringRef (kLSPIDKey) = NULL;
 static CFStringRef (kLSBundlePathKey) = NULL;
 static CFStringRef (kLSExecutablePathKey) = NULL;
 
+typedef NS_ENUM(NSUInteger, RDProcessForBundleIDEnumerationOption) {
+	kRDProcessForBundleIDYoungest = 0,
+	kRDProcessForBundleIDOldest,
+	kRDProcessForBundleIDAll
+};
+
 
 static const CFStringRef kLaunchServicesBundleID = CFSTR("com.apple.LaunchServices");
 
@@ -57,6 +63,8 @@ static const CFStringRef kLaunchServicesBundleID = CFSTR("com.apple.LaunchServic
 	NSLock *lock;
 }
 + (BOOL)_checkIfWeCanAccessPIDAtTheMoment: (pid_t)a_pid;
++ (NSArray *)_lookupForProcessesWithBundleID: (NSString *)bundleID optios: (RDProcessForBundleIDEnumerationOption)option;
+
 - (void)_requestOwnerNames;
 - (BOOL)_requestProcessArgumentsAndEnvironment;
 - (BOOL)_checkSandboxOperation: (const char *)operation forItemAtPath: (NSString *)item_path;
@@ -87,6 +95,30 @@ static const CFStringRef kLaunchServicesBundleID = CFSTR("com.apple.LaunchServic
 	return (self);
 }
 
++ (instancetype)oldestProcessWithBundleID: (NSString *)bundleID
+{
+	return [[self _lookupForProcessesWithBundleID: bundleID option: kRDProcessForBundleIDOldest] lastObject];
+}
+
++ (instancetype)youngestProcessWithBundleID: (NSString *)bundleID
+{
+	return [[self _lookupForProcessesWithBundleID: bundleID option: kRDProcessForBundleIDYoungest] lastObject];
+}
+
++ (void)enumerateProcessesWithBundleID: (NSString *)bundleID usingBlock: (RDProcessEnumerator)block
+{
+	if (!block) {
+		return;
+	}
+	NSArray *procs = [self _lookupForProcessesWithBundleID: bundleID option: kRDProcessForBundleIDAll];
+	if (!procs) {
+		return;
+	}
+	[procs enumerateObjectsUsingBlock: ^(id process, NSUInteger idx, BOOL *stop){
+		block(process, bundleID, stop);
+	}];
+}
+
 + (BOOL)_checkIfWeCanAccessPIDAtTheMoment: (pid_t)a_pid
 {
 	if (a_pid < 0) return NO;
@@ -103,6 +135,86 @@ static const CFStringRef kLaunchServicesBundleID = CFSTR("com.apple.LaunchServic
 		default: {
 			NSLog(@"Pid %d doesn't exist", a_pid);
 			return NO;
+		}
+	}
+}
+
++ (NSArray *)_lookupForProcessesWithBundleID: (NSString *)bundleID option: (RDProcessForBundleIDEnumerationOption)option
+{
+	if (bundleID.length == 0) {
+		return (nil);
+	}
+
+	ProcessSerialNumber psn = {0, kNoProcess};
+	UInt32 oldest_proc_launch_date   = UINT32_MAX,
+	       youngest_proc_launch_date = 0;
+
+	NSMutableArray *procs = nil;
+	BOOL find_youngest = (option == kRDProcessForBundleIDYoungest);
+	BOOL find_oldest   = (option == kRDProcessForBundleIDOldest);
+	pid_t target_pid   = (-1);
+	BOOL find_all      = !(find_youngest || find_oldest);
+	if (find_all) {
+		procs = [[NSMutableArray alloc] init];
+	}
+
+	while (KERN_SUCCESS == GetNextProcess(&psn)) {
+		struct ProcessInfoRec info = {0};
+		info.processInfoLength = sizeof(&info);
+		int err = GetProcessInformation(&psn, &info);
+		if (err != KERN_SUCCESS) {
+			NSLog(@"GetProcessInformation returned %d: %s", err, GetMacOSStatusCommentString(err));
+			continue;
+		}
+
+		pid_t pid = 0;
+		GetProcessPID(&psn, &pid);
+		CFTypeRef asn = LSASNCreateWithPid(kCFAllocatorDefault, pid);
+
+		CFDictionaryRef proc_info = LSCopyApplicationInformation(kLaunchServicesMagicConstant, asn, NULL);
+		CFRelease(asn);
+		if (!proc_info) {
+			continue;
+		}
+
+		CFStringRef found_bundle_id = CFDictionaryGetValue(proc_info, kCFBundleIdentifierKey);
+		if (!found_bundle_id) {
+			CFRelease(proc_info);
+			continue;
+		}
+
+		if (find_oldest && info.processLaunchDate < oldest_proc_launch_date) {
+			if (CFStringCompare(found_bundle_id, (CFStringRef)bundleID, 0) == kCFCompareEqualTo) {
+				oldest_proc_launch_date = info.processLaunchDate;
+				target_pid = pid;
+			}
+		}
+		if (find_youngest && info.processLaunchDate > youngest_proc_launch_date) {
+			if (CFStringCompare(found_bundle_id, (CFStringRef)bundleID, 0) == kCFCompareEqualTo) {
+				youngest_proc_launch_date = info.processLaunchDate;
+				target_pid = pid;
+			}
+
+		}
+		if (find_all) {
+			if (CFStringCompare(found_bundle_id, (CFStringRef)bundleID, 0) == kCFCompareEqualTo) {
+				[procs addObject: [[RDProcess alloc] initWithPID: pid]];
+			}
+		}
+
+		CFRelease(proc_info);
+	}
+
+	if (find_all) {
+		NSArray *result = [NSArray arrayWithArray: procs];
+		[procs release];
+		return (result);
+
+	} else {
+		if (target_pid == (-1)) {
+			return nil;
+		} else {
+			return @[[[RDProcess alloc] initWithPID: target_pid]];
 		}
 	}
 }

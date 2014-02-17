@@ -1,10 +1,16 @@
 #import <Foundation/Foundation.h>
 #import <AppKit/AppKit.h>
 
+typedef void (^RDProcessEnumerator)(id process, NSString *bundleID, BOOL *stop);
+
 @interface RDProcess : NSObject
 
 - (instancetype)init __attribute__((unavailable("use -initWithPID: instead")));
 - (instancetype)initWithPID: (pid_t)aPid;
+
++ (instancetype)oldestProcessWithBundleID: (NSString *)bundleID;
++ (instancetype)youngestProcessWithBundleID: (NSString *)bundleID;
++ (void)enumerateProcessesWithBundleID: (NSString *)bundleID usingBlock: (RDProcessEnumerator)block;
 
 - (pid_t)pid;
 - (NSString *)processName;
