@@ -107,7 +107,7 @@ static const CFStringRef kLaunchServicesBundleID = CFSTR("com.apple.LaunchServic
 	}
 }
 
-- (id)description
+- (NSString *)description
 {
 	return [NSString stringWithFormat: @"<%@: %@ (%@/%d) owned by %@ (%d)>",
 		NSStringFromClass([self class]), self.processName, self.bundleID, self.pid,
