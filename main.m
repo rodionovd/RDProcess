@@ -13,7 +13,12 @@ int main(int argc, char const *argv[])
 		return (1);
 	}
 
-	RDProcess *proc = [[RDProcess alloc] initWithPID: strtol(argv[1], NULL, 10)];
+	int pid = strtol(argv[1], NULL, 10);
+	RDProcess *proc = [[RDProcess alloc] initWithPID: pid];
+	if (!proc) {
+		NSLog(@"Could not create RDProcess with invalid PID (%d)", pid);
+		return (1);
+	}
 	NSLog(@"Proc general: %@", proc);
 
 	NSLog(@"PID: %d", proc.pid);
