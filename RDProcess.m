@@ -69,7 +69,7 @@ static const CFStringRef kLaunchServicesBundleID = CFSTR("com.apple.LaunchServic
 @implementation RDProcess
 
 
-- (id)initWithPID: (pid_t)a_pid
+- (instancetype)initWithPID: (pid_t)a_pid
 {
 	BOOL pid_is_available = [[self class] _checkIfWeCanAccessPIDAtTheMoment: a_pid];
 	if (NO == pid_is_available) {

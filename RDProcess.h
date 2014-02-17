@@ -3,8 +3,8 @@
 
 @interface RDProcess : NSObject
 
-- (id)init __attribute__((unavailable("use -initWithPID: instead")));
-- (id)initWithPID: (pid_t)aPid;
+- (instancetype)init __attribute__((unavailable("use -initWithPID: instead")));
+- (instancetype)initWithPID: (pid_t)aPid;
 
 - (pid_t)pid;
 - (NSString *)processName;
