@@ -63,7 +63,7 @@ int main(int argc, char const *argv[])
 	NSLog(@"Arguments: %@", proc.launchArguments);
 	NSLog(@"Environment: %@", proc.environmentVariables);
 
-	proc.processName = [proc.processName stringByAppendingString: @" (RDProcess)"];
+	// proc.processName = [proc.processName stringByAppendingString: @" (RDProcess)"];
 
 	[proc release];
 
