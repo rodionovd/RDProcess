@@ -46,7 +46,7 @@ static const CFStringRef kLaunchServicesBundleID = CFSTR("com.apple.LaunchServic
 	/* Sanboxing */
 	BOOL _sandboxed; // sandboxed by OS X
 	BOOL _sandboxed_by_user;
-	NSLock *_custom_sandbox_lock;
+	NSString *_sandbox_container_path;
 
 	/* stuff */
 	NSArray *_launch_args;
@@ -127,7 +127,10 @@ static const CFStringRef kLaunchServicesBundleID = CFSTR("com.apple.LaunchServic
 + (BOOL)_checkIfWeCanAccessPIDAtTheMoment: (pid_t)a_pid
 {
 	if (a_pid < 0) return NO;
-
+	/**
+	 * kill(0) here is an indicator that we have a process with
+	 * such PID and can access it.
+	 */
 	int err = kill(a_pid, 0);
 	switch (err) {
 		case (-1): {
@@ -162,7 +165,12 @@ static const CFStringRef kLaunchServicesBundleID = CFSTR("com.apple.LaunchServic
 	if (find_all) {
 		procs = [[NSMutableArray alloc] init];
 	}
-
+	/**
+	 * Seems like the only *public* way to iterate over all running processes is GetNextProcess()
+	 * which is a simple wrapper for LSCopyRunningApplicationArray().
+	 *
+	 * So, @todo: use LSCopyRunningApplicationArray() directly.
+	 */
 	while (KERN_SUCCESS == GetNextProcess(&psn)) {
 		struct ProcessInfoRec info = {0};
 		info.processInfoLength = sizeof(&info);
@@ -236,10 +244,12 @@ static const CFStringRef kLaunchServicesBundleID = CFSTR("com.apple.LaunchServic
 
 - (NSString *)processName
 {
-	[self _fetchNewDataFromLaunchServicesWithAtLeastOneKey: kLSDisplayNameKey];
-
 	if (!_process_name) {
-		_process_name = [[self.executablePath lastPathComponent] retain];
+		[self _fetchNewDataFromLaunchServicesWithAtLeastOneKey: kLSDisplayNameKey];
+
+		if (!_process_name) {
+			_process_name = [[self.executablePath lastPathComponent] retain];
+		}
 	}
 
 	return _process_name;
@@ -260,12 +270,21 @@ static const CFStringRef kLaunchServicesBundleID = CFSTR("com.apple.LaunchServic
 		tmp_dict,
 		NULL);
 	CFRelease(tmp_dict);
+	/* Force updating the process name value via LaunchServices */
+	[self _fetchNewDataFromLaunchServicesWithAtLeastOneKey: kLSDisplayNameKey];
 
 	return NO;
 }
 
 - (pid_t)pid
 {
+	/**
+	 * I'm not sure
+	 * 1) if PID is likely to change during a process lifetime and
+	 * 2) if we should ask LS for a PID every time this method gets called;
+	 *
+	 * @todo: make sure about both points above.
+	 */
 	[self _fetchNewDataFromLaunchServicesWithAtLeastOneKey: kLSPIDKey];
 
 	return _pid;
@@ -273,52 +292,57 @@ static const CFStringRef kLaunchServicesBundleID = CFSTR("com.apple.LaunchServic
 
 - (NSString *)bundleID
 {
-	[self _fetchNewDataFromLaunchServicesWithAtLeastOneKey: kCFBundleIdentifierKey];
+	if (!_bundle_id) {
+		[self _fetchNewDataFromLaunchServicesWithAtLeastOneKey: kCFBundleIdentifierKey];
+	}
 
 	return _bundle_id;
 }
 
 - (NSURL *)bundleURL
 {
-	NSString *bundle_path = self.bundlePath;
-	if (!bundle_path) {
+	if (!self.bundlePath) {
 		return (nil);
 	}
 
-	return [NSURL fileURLWithPath: bundle_path];
+	return [NSURL fileURLWithPath: self.bundlePath];
 }
 
 - (NSString *)bundlePath
 {
-	[self _fetchNewDataFromLaunchServicesWithAtLeastOneKey: kLSBundlePathKey];
+	if (!_bundle_path) {
+		[self _fetchNewDataFromLaunchServicesWithAtLeastOneKey: kLSBundlePathKey];
+	}
 
 	return _bundle_path;
 }
 
 - (NSURL *)executableURL
 {
-	NSString *executable_path = self.executablePath;
-	if (!executable_path) {
+	if (!self.executablePath) {
 		return (nil);
 	}
-	return [NSURL fileURLWithPath: executable_path];
+	return [NSURL fileURLWithPath: self.executablePath];
 }
 
 - (NSString *)executablePath
 {
-	[self _fetchNewDataFromLaunchServicesWithAtLeastOneKey: kLSExecutablePathKey];
-
 	if (!_executable_path) {
-		_executable_path = [[self.launchArguments objectAtIndex: 0] retain];
-	}
-
-	if (!_executable_path) {
-		char *buf = malloc(sizeof(*buf) * kSandboxContainerPathBufferSize);
-		int err = proc_pidpath(self.pid, buf, kSandboxContainerPathBufferSize);
-		if (err) {
-			_executable_path = [NSString stringWithUTF8String: buf];
+		/* First we ask LaunchServies API */
+		[self _fetchNewDataFromLaunchServicesWithAtLeastOneKey: kLSExecutablePathKey];
+		/* If it fails, ask for argv[0] */
+		if (!_executable_path) {
+			_executable_path = [[self.launchArguments objectAtIndex: 0] retain];
 		}
-		free(buf);
+		/* If argv[0] doesn't exist (which is unlikely to happen, but anyway), use `proc_pidpath()`*/
+		if (!_executable_path) {
+			char *buf = malloc(sizeof(*buf) * kSandboxContainerPathBufferSize);
+			int err = proc_pidpath(self.pid, buf, kSandboxContainerPathBufferSize);
+			if (err) {
+				_executable_path = [NSString stringWithUTF8String: buf];
+			}
+			free(buf);
+		}
 	}
 
 	return _executable_path;
@@ -344,7 +368,7 @@ static const CFStringRef kLaunchServicesBundleID = CFSTR("com.apple.LaunchServic
 
 - (void)_requestOwnerNames
 {
-	if (_owner_user_name  && _owner_full_user_name) {
+	if (_owner_user_name && _owner_full_user_name) {
 		return;
 	}
 
@@ -390,7 +414,7 @@ static const CFStringRef kLaunchServicesBundleID = CFSTR("com.apple.LaunchServic
 	}
 	getgrouplist(user_name, 12, gr_bytes, &ngroups);
 	if (ngroups == 0) {
-		 // will never happen?
+		 /* will it ever happen? */
 		return result;
 	}
 
@@ -550,15 +574,17 @@ static const CFStringRef kLaunchServicesBundleID = CFSTR("com.apple.LaunchServic
 
 - (NSString *)sandboxContainerPath
 {
-	NSString *result = nil;
-	char *buf = malloc(sizeof(*buf) * kSandboxContainerPathBufferSize);
-	int err = sandbox_container_path_for_pid(_pid, buf, kSandboxContainerPathBufferSize);
-	if (err == KERN_SUCCESS && strlen(buf) > 0) {
-		result = [NSString stringWithUTF8String: buf];
+	if (!_sandbox_container_path) {
+		char *buf = malloc(sizeof(*buf) * kSandboxContainerPathBufferSize);
+		int err = sandbox_container_path_for_pid(_pid, buf, kSandboxContainerPathBufferSize);
+		if (err == KERN_SUCCESS && strlen(buf) > 0) {
+			_sandbox_container_path = [[NSString stringWithUTF8String: buf] retain];
+		}
+
+		free(buf);
 	}
 
-	free(buf);
-	return (result);
+	return (_sandbox_container_path);
 }
 
 - (NSURL *)sandboxContainerURL
@@ -680,18 +706,22 @@ done: {
 	}
 	tmp = NULL;
 	if (CFDictionaryGetValueIfPresent(dictionary, kLSDisplayNameKey, &tmp)) {
+		if (_process_name) [_process_name release];
 		_process_name = [[NSString stringWithString: tmp] retain];
 	}
 	tmp = NULL;
 	if (CFDictionaryGetValueIfPresent(dictionary, kCFBundleIdentifierKey, &tmp)) {
+		if (_bundle_id) [_bundle_id release];
 		_bundle_id = [[NSString stringWithString: tmp] retain];
 	}
 	tmp = NULL;
 	if (CFDictionaryGetValueIfPresent(dictionary, kLSBundlePathKey, &tmp)) {
+		if (_bundle_path) [_bundle_path release];
 		_bundle_path = [[NSString stringWithString: tmp] retain];
 	}
 	tmp = NULL;
 	if (CFDictionaryGetValueIfPresent(dictionary, kLSExecutablePathKey, &tmp)) {
+		if (_executable_path) [_executable_path release];
 		_executable_path = [[NSString stringWithString: tmp] retain];
 	}
 }
