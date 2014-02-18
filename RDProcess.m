@@ -239,7 +239,7 @@ static const CFStringRef kLaunchServicesBundleID = CFSTR("com.apple.LaunchServic
 	[self _fetchNewDataFromLaunchServicesWithAtLeastOneKey: kLSDisplayNameKey];
 
 	if (!_process_name) {
-		_process_name = [self.executablePath lastPathComponent];
+		_process_name = [[self.executablePath lastPathComponent] retain];
 	}
 
 	return _process_name;
@@ -309,7 +309,7 @@ static const CFStringRef kLaunchServicesBundleID = CFSTR("com.apple.LaunchServic
 	[self _fetchNewDataFromLaunchServicesWithAtLeastOneKey: kLSExecutablePathKey];
 
 	if (!_executable_path) {
-		_executable_path = [[self.launchArguments objectAtIndex: 0] lastPathComponent];
+		_executable_path = [[self.launchArguments objectAtIndex: 0] retain];
 	}
 
 	if (!_executable_path) {
@@ -486,11 +486,16 @@ static const CFStringRef kLaunchServicesBundleID = CFSTR("com.apple.LaunchServic
 			i++;
 		}
 	}
-
-	_launch_args = [NSArray arrayWithArray: tmp_argv];
+	if (_launch_args) {
+		[_launch_args release];
+	}
+	_launch_args = [[NSArray alloc] initWithArray: tmp_argv copyItems: NO];
 	[tmp_argv release];
 
-	_env_variables = [NSDictionary dictionaryWithDictionary: tmp_env];
+	if (_env_variables) {
+		[_env_variables release];
+	}
+	_env_variables = [[NSDictionary alloc] initWithDictionary: tmp_env];
 	[tmp_env release];
 
 	free(arguments_ptr);
@@ -675,19 +680,19 @@ done: {
 	}
 	tmp = NULL;
 	if (CFDictionaryGetValueIfPresent(dictionary, kLSDisplayNameKey, &tmp)) {
-		_process_name = [NSString stringWithString: tmp];
+		_process_name = [[NSString stringWithString: tmp] retain];
 	}
 	tmp = NULL;
 	if (CFDictionaryGetValueIfPresent(dictionary, kCFBundleIdentifierKey, &tmp)) {
-		_bundle_id = [NSString stringWithString: tmp];
+		_bundle_id = [[NSString stringWithString: tmp] retain];
 	}
 	tmp = NULL;
 	if (CFDictionaryGetValueIfPresent(dictionary, kLSBundlePathKey, &tmp)) {
-		_bundle_path = [NSString stringWithString: tmp];
+		_bundle_path = [[NSString stringWithString: tmp] retain];
 	}
 	tmp = NULL;
 	if (CFDictionaryGetValueIfPresent(dictionary, kLSExecutablePathKey, &tmp)) {
-		_executable_path = [NSString stringWithString: tmp];
+		_executable_path = [[NSString stringWithString: tmp] retain];
 	}
 }
 
