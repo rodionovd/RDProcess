@@ -8,12 +8,14 @@ static void print_usage(const char *prog_name);
 
 int main(int argc, char const *argv[])
 {
+	pid_t pid = (-1);
 	if (argc < 2) {
 		print_usage(argv[0]);
-		return (1);
+		pid = getpid();
+	} else {
+		pid = strtol(argv[1], NULL, 10);
 	}
 
-	int pid = strtol(argv[1], NULL, 10);
 	RDProcess *proc = [[RDProcess alloc] initWithPID: pid];
 	if (!proc) {
 		NSLog(@"Could not create RDProcess with invalid PID (%d)", pid);
@@ -82,5 +84,5 @@ int main(int argc, char const *argv[])
 
 static void print_usage(const char *prog_name)
 {
-	printf("Usage: %s pid\n", prog_name);
+	printf("Usage: %s [pid]\nIf no pid specified, getpid() is used\n\n", prog_name);
 }
