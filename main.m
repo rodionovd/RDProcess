@@ -68,7 +68,7 @@ int main(int argc, char const *argv[])
 	NSLog(@"All processes:");
 	[RDProcess enumerateProcessesWithBundleID: proc.bundleID
 			usingBlock:^(id process, NSString *bundleID, BOOL *stop){
-				NSLog(@"%\t* %@", process);
+				NSLog(@"\t* %@", process);
 	}];
 	NSLog(@"And again:");
 	NSLog(@"%@", [RDProcess allProcessesWithBundleID: proc.bundleID]);
