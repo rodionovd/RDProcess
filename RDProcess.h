@@ -5,8 +5,21 @@ typedef void (^RDProcessEnumerator)(id process, NSString *bundleID, BOOL *stop);
 
 @interface RDProcess : NSObject
 
+#pragma mark Initialization with PID
+
 - (instancetype)init __attribute__((unavailable("use -initWithPID: instead")));
+/**
+ * Returns a process for specified PID with following fields pre-initiated:
+ * - PID value
+ * - Process name (via either LaunchServices API or argv[0]-based value)
+ * - Bundle ID
+ * - Executable path (via either LaunchServices API or proc_pidpath() or, if nothing else, argv[0]-based value)
+ *
+ * @param  {(pid_t}       aPid the PID of a target process
+ */
 - (instancetype)initWithPID: (pid_t)aPid;
+
+#pragma mark Creation with Bundle ID
 
 + (instancetype)oldestProcessWithBundleID: (NSString *)bundleID;
 + (instancetype)youngestProcessWithBundleID: (NSString *)bundleID;
@@ -14,48 +27,46 @@ typedef void (^RDProcessEnumerator)(id process, NSString *bundleID, BOOL *stop);
 + (NSArray *)allProcessesWithBundleID: (NSString *)bundleID;
 
 - (pid_t)pid;
+/**
+ * A name of the process (using either LaunchServices API or argv[0]-based value)
+ *
+ * @return this method should not return `nil` value, but the value may be invalid any other way,
+ * so it's up to you to verify it.
+ */
 - (NSString *)processName;
 /**
- * Sets a new title for a process.
+ * Sets a new title for the process.
  *
  * @brief
- *     1) This method sets a new value for LaunchServices' Display Name key of the process;
- *     2) If we set a name for current process {pid == getpid()}
- *        OR  if the current user is a member of `procmod` group,
- *        than it also pathes argv[0] with a new name.
- *
- * @discussion
- *     It will *completely* set a new name only for a current process.
- *     For other ones it will only change the LaunchServices' "Display Name" value, which implies
- *     that some utilities (e.g. System Monitor.app) will follow that change but other ones
- *     (e.g. ps, top) won't, because they depend on argv[0] value which we can't change
- *     without being inside `procmod` group.
- *
+ *     This method sets a new value for LaunchServices' "Display Name" key of the process;
+ *     Please, note that some utils like `ps` or `top` rather depend on an argv[0] value than
+ *     on the "Display Name".
  * @param
  *     {NSString *} new title for the process
  * @return
  *     {BOOL}       Always NO (0)
  */
 - (BOOL)setProcessName: (NSString *)new_proc_name;
-
-// these will return (obviously) `nil` for non-bundled applications
+/**
+ * These methods will return (obviously) `nil` for non-bundled applications.
+ */
 - (NSString *)bundleID;
 - (NSURL    *)bundleURL;
 - (NSString *)bundlePath;
 
 - (NSURL    *)executableURL;
 - (NSString *)executablePath;
-
+/**
+ * UID, name and full name for a user who owns this process.
+ */
 - (uid_t)ownerUserID;
 - (NSString *)ownerUserName;
 - (NSString *)ownerFullUserName;
-// @{
-//    /* Keys */ /* Values */
-//    group_id0 : group_name0,
-//    group_id1 : group_name1,
-//    ... ... ... ... ... ...
-//    group_idN : group_nameN,
-// }
+/**
+ * List of groups of which the user is member of.
+ *
+ * @format: Keys are groupd ids, values are groups names;
+ */
 - (NSDictionary *)ownerGroups;
 
 
@@ -70,7 +81,7 @@ typedef void (^RDProcessEnumerator)(id process, NSString *bundleID, BOOL *stop);
  */
 - (BOOL)isSandboxedByOSX;
 /**
- * Sandbox contatiner path for the process (if it has one).
+ * Sandbox container path for the process (if it has one).
  * @return
  *     {NSString *} containter path or `nil` if the process is not sandboxed.
  */
