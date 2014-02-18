@@ -11,6 +11,7 @@ typedef void (^RDProcessEnumerator)(id process, NSString *bundleID, BOOL *stop);
 + (instancetype)oldestProcessWithBundleID: (NSString *)bundleID;
 + (instancetype)youngestProcessWithBundleID: (NSString *)bundleID;
 + (void)enumerateProcessesWithBundleID: (NSString *)bundleID usingBlock: (RDProcessEnumerator)block;
++ (NSArray *)allProcessesWithBundleID: (NSString *)bundleID;
 
 - (pid_t)pid;
 - (NSString *)processName;

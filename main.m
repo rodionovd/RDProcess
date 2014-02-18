@@ -70,6 +70,8 @@ int main(int argc, char const *argv[])
 			usingBlock:^(id process, NSString *bundleID, BOOL *stop){
 				NSLog(@"%\t* %@", process);
 	}];
+	NSLog(@"And again:");
+	NSLog(@"%@", [RDProcess allProcessesWithBundleID: proc.bundleID]);
 	NSLog(@"The youngest process: %@", [RDProcess youngestProcessWithBundleID: proc.bundleID]);
 	NSLog(@"The oldest process: %@", [RDProcess oldestProcessWithBundleID: proc.bundleID]);
 	[proc release];

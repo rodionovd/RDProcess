@@ -110,13 +110,18 @@ static const CFStringRef kLaunchServicesBundleID = CFSTR("com.apple.LaunchServic
 	if (!block) {
 		return;
 	}
-	NSArray *procs = [self _lookupForProcessesWithBundleID: bundleID option: kRDProcessForBundleIDAll];
+	NSArray *procs = [self allProcessesWithBundleID: bundleID];
 	if (!procs) {
 		return;
 	}
 	[procs enumerateObjectsUsingBlock: ^(id process, NSUInteger idx, BOOL *stop){
 		block(process, bundleID, stop);
 	}];
+}
+
++ (NSArray *)allProcessesWithBundleID: (NSString *)bundleID
+{
+	return [self _lookupForProcessesWithBundleID: bundleID option: kRDProcessForBundleIDAll];
 }
 
 + (BOOL)_checkIfWeCanAccessPIDAtTheMoment: (pid_t)a_pid
