@@ -63,7 +63,7 @@ static const CFStringRef kLaunchServicesBundleID = CFSTR("com.apple.LaunchServic
 	NSLock *lock;
 }
 + (BOOL)_checkIfWeCanAccessPIDAtTheMoment: (pid_t)a_pid;
-+ (NSArray *)_lookupForProcessesWithBundleID: (NSString *)bundleID optios: (RDProcessForBundleIDEnumerationOption)option;
++ (NSArray *)_lookupForProcessesWithBundleID: (NSString *)bundleID options: (RDProcessForBundleIDEnumerationOption)option;
 
 - (void)_requestOwnerNames;
 - (BOOL)_requestProcessArgumentsAndEnvironment;
