@@ -183,23 +183,24 @@ static const CFStringRef kLaunchServicesBundleID = CFSTR("com.apple.LaunchServic
 			CFRelease(proc_info);
 			continue;
 		}
-		BOOL bunlde_id_matches = (CFStringCompare(found_bundle_id, (CFStringRef)bundleID, 0) == kCFCompareEqualTo);
+		BOOL (^checkIfBundleIDMatches)(CFStringRef, CFStringRef) = ^BOOL(CFStringRef a, CFStringRef b) {
+			return (CFStringCompare(a, b, 0) == kCFCompareEqualTo);
+		};
 
 		if (find_oldest && info.processLaunchDate < oldest_proc_launch_date) {
-			if (bunlde_id_matches) {
+			if (checkIfBundleIDMatches(found_bundle_id, (CFStringRef)bundleID)) {
 				oldest_proc_launch_date = info.processLaunchDate;
 				target_pid = pid;
 			}
 		}
 		if (find_youngest && info.processLaunchDate > youngest_proc_launch_date) {
-			if (bunlde_id_matches) {
+			if (checkIfBundleIDMatches(found_bundle_id, (CFStringRef)bundleID)) {
 				youngest_proc_launch_date = info.processLaunchDate;
 				target_pid = pid;
 			}
-
 		}
 		if (find_all) {
-			if (bunlde_id_matches) {
+			if (checkIfBundleIDMatches(found_bundle_id, (CFStringRef)bundleID)) {
 				[procs addObject: [[RDProcess alloc] initWithPID: pid]];
 			}
 		}
