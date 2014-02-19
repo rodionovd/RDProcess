@@ -67,12 +67,12 @@ int main(int argc, char const *argv[])
 
 	// proc.processName = [proc.processName stringByAppendingString: @" (RDProcess)"];
 
-	NSLog(@"All processes:");
+	NSLog(@"All processes with the same Bundle ID:");
 	[RDProcess enumerateProcessesWithBundleID: proc.bundleID
 			usingBlock:^(id process, NSString *bundleID, BOOL *stop){
 				NSLog(@"\t* %@", process);
 	}];
-	NSLog(@"And again:");
+	NSLog(@"And again, here they are:");
 	NSLog(@"%@", [RDProcess allProcessesWithBundleID: proc.bundleID]);
 	NSLog(@"The youngest process: %@", [RDProcess youngestProcessWithBundleID: proc.bundleID]);
 	NSLog(@"The oldest process: %@", [RDProcess oldestProcessWithBundleID: proc.bundleID]);
