@@ -15,7 +15,7 @@ task :run do
 	finder_pid = `ps -A | grep -m1 Finder | awk '{print $1}'`
 	system("./build/#{TARGET} #{finder_pid}")
 	puts "\n\n\n"
-	# Inspecting a process that doesn't not exist (invalid PID)
+	# Inspecting a process that doesn't exist (invalid PID)
 	system("./build/#{TARGET} -12312")
 end
 
