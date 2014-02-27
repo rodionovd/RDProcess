@@ -1,8 +1,9 @@
 RDProcess — you're now as knowledgeable as Activity Monitor is
 =========
 
-RDProcess is a light library that allows you to obtain as many information about any running process in your system as it possible to collect (it can even handle some Sandbox-related info, such as containter path for a process).  
-It's built on top of Launch Services, AppKit and some scary old-school POSIX things.  
+RDProcess is an Objective-C class that's an improved version of NSProcessInformation and NSRunningApplication: it gives you as many information about any running process in your system as it even possible to collect.  
+My favorite thing about `RDProcesss` is that it handle Sandbox-related information: it can check if a process is even sandboxed, search for the its containter path, etc.  
+`RDProcesss`'s built on top of Launch Services, AppKit and some old-school POSIX things.  
 
 ## Interface  
 
