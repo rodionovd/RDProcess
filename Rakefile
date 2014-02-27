@@ -11,9 +11,13 @@ task :run do
 	# Inspecting the demo app itself (console application)
 	system("./build/#{TARGET}")
 	puts "\n\n\n"
-	# Inspecting the Finder (GUI application)
+	# Inspecting the Finder (GUI application, not sandboxed)
 	finder_pid = `ps -A | grep -m1 Finder | awk '{print $1}'`
 	system("./build/#{TARGET} #{finder_pid}")
+	puts "\n\n\n"
+	# Trying inspecting a Safari Web Content instance (sandboxed)
+	web_process_pid = `ps -A | grep -m1 'MacOS/WebProcess' | awk '{print $1}'`
+	system("./build/#{TARGET} #{web_process_pid}")
 	puts "\n\n\n"
 	# Inspecting a process that doesn't exist (invalid PID)
 	system("./build/#{TARGET} -12312")

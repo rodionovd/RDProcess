@@ -500,8 +500,12 @@ static const CFStringRef kLaunchServicesBundleID = CFSTR("com.apple.LaunchServic
 			/* Parse env vars */
 			NSArray *parts = [[NSString stringWithUTF8String: arg]
 				componentsSeparatedByString: @"="];
-
-			[tmp_env setObject: [parts[1] stringByAddingPercentEscapesUsingEncoding: NSUTF8StringEncoding]
+			/**
+			 * Sometimes environment variable pair contains only the key, so
+			 * let's handle it correctly.
+			 */
+			NSString *value = (parts.count > 1) ? parts[1] : @"";
+			[tmp_env setObject: [value stringByAddingPercentEscapesUsingEncoding: NSUTF8StringEncoding]
 			            forKey: parts[0]];
 			}
 			++counter;
