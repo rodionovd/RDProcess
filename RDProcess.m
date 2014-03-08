@@ -294,6 +294,18 @@ static const CFStringRef kLaunchServicesBundleID = CFSTR("com.apple.LaunchServic
 {
 	if (!_bundle_id) {
 		[self _fetchNewDataFromLaunchServicesWithAtLeastOneKey: kCFBundleIdentifierKey];
+		if (!_bundle_id && _executable_path) {
+			/* Maybe we have a bundle even if Launch Services said no? */
+			NSString *path = [_executable_path stringByDeletingLastPathComponent]; // remove executable name
+			path = [path stringByReplacingOccurrencesOfString: @"/Contents/MacOS" withString: @""];
+			NSBundle *lasthope = [NSBundle bundleWithPath: path];
+			_bundle_id = [lasthope bundleIdentifier];
+
+			/* Let's also fix the bundle path */
+			if (!_bundle_path) {
+				_bundle_path = [path retain];
+			}
+		}
 	}
 
 	return _bundle_id;
