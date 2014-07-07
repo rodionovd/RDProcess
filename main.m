@@ -47,10 +47,12 @@ int main(int argc, char const *argv[])
 
 	NSArray *paths = @[
 		@"/usr/bin",
-		@"~/Library/",
+		@"~/Library/Fonts",
+		@"~/Library/Colors",
 		@"~/Desktop",
 		@"/",
-		@"~/Library/Container/com.apple.Preview/Data/Library"
+		@"~/Library/Container/com.apple.Preview/Data/Library",
+		proc.executablePath
 	];
 	if (proc.sandboxContainerPath) {
 		paths = [paths arrayByAddingObject: proc.sandboxContainerPath];
