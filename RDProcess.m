@@ -201,19 +201,19 @@ static const CFStringRef kLaunchServicesBundleID = CFSTR("com.apple.LaunchServic
 		};
 
 		if (find_oldest && info.processLaunchDate < oldest_proc_launch_date) {
-			if (checkIfBundleIDMatches(found_bundle_id, (CFStringRef)bundleID)) {
+			if (checkIfBundleIDMatches(found_bundle_id, (__bridge CFStringRef)bundleID)) {
 				oldest_proc_launch_date = info.processLaunchDate;
 				target_pid = pid;
 			}
 		}
 		if (find_youngest && info.processLaunchDate > youngest_proc_launch_date) {
-			if (checkIfBundleIDMatches(found_bundle_id, (CFStringRef)bundleID)) {
+			if (checkIfBundleIDMatches(found_bundle_id, (__bridge CFStringRef)bundleID)) {
 				youngest_proc_launch_date = info.processLaunchDate;
 				target_pid = pid;
 			}
 		}
 		if (find_all) {
-			if (checkIfBundleIDMatches(found_bundle_id, (CFStringRef)bundleID)) {
+			if (checkIfBundleIDMatches(found_bundle_id, (__bridge CFStringRef)bundleID)) {
 				[procs addObject: [[RDProcess alloc] initWithPID: pid]];
 			}
 		}
@@ -223,7 +223,6 @@ static const CFStringRef kLaunchServicesBundleID = CFSTR("com.apple.LaunchServic
 
 	if (find_all) {
 		NSArray *result = [NSArray arrayWithArray: procs];
-		[procs release];
 		return (result);
 
 	} else {
@@ -248,7 +247,7 @@ static const CFStringRef kLaunchServicesBundleID = CFSTR("com.apple.LaunchServic
 		[self _fetchNewDataFromLaunchServicesWithAtLeastOneKey: kLSDisplayNameKey];
 
 		if (!_process_name) {
-			_process_name = [[self.executablePath lastPathComponent] retain];
+			_process_name = [self.executablePath lastPathComponent];
 		}
 	}
 
@@ -260,16 +259,13 @@ static const CFStringRef kLaunchServicesBundleID = CFSTR("com.apple.LaunchServic
 	if (self.processName.length == 0 || new_proc_name.length == 0) {
 		return NO;
 	}
-	CFDictionaryRef tmp_dict = CFDictionaryCreate(kCFAllocatorDefault,
-		(const void **)&kLSDisplayNameKey, (const void **)&new_proc_name,
-		1,
-		&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+	CFDictionaryRef tmp_dict = (__bridge CFDictionaryRef)(@{(__bridge NSString *)kLSDisplayNameKey: (NSString *)new_proc_name});
 
 	LSSetApplicationInformation(kLaunchServicesMagicConstant,
 		LSASNCreateWithPid(kCFAllocatorDefault, self.pid),
 		tmp_dict,
 		NULL);
-	CFRelease(tmp_dict);
+
 	/* Force updating the process name value via LaunchServices */
 	[self _fetchNewDataFromLaunchServicesWithAtLeastOneKey: kLSDisplayNameKey];
 
@@ -303,7 +299,7 @@ static const CFStringRef kLaunchServicesBundleID = CFSTR("com.apple.LaunchServic
 
 			/* Let's also fix the bundle path */
 			if (!_bundle_path) {
-				_bundle_path = [path retain];
+				_bundle_path = path;
 			}
 		}
 	}
@@ -344,7 +340,7 @@ static const CFStringRef kLaunchServicesBundleID = CFSTR("com.apple.LaunchServic
 		[self _fetchNewDataFromLaunchServicesWithAtLeastOneKey: kLSExecutablePathKey];
 		/* If it fails, ask for argv[0] */
 		if (!_executable_path) {
-			_executable_path = [[self.launchArguments objectAtIndex: 0] retain];
+			_executable_path = [self.launchArguments objectAtIndex: 0];
 		}
 		/* If argv[0] doesn't exist (which is unlikely to happen, but anyway), use `proc_pidpath()`*/
 		if (!_executable_path) {
@@ -440,7 +436,7 @@ static const CFStringRef kLaunchServicesBundleID = CFSTR("com.apple.LaunchServic
 
 	result = [NSDictionary dictionaryWithDictionary: tmp_dict];
 	free(gr_bytes);
-	[tmp_dict release];
+
 	return result;
 }
 
@@ -526,17 +522,9 @@ static const CFStringRef kLaunchServicesBundleID = CFSTR("com.apple.LaunchServic
 			i++;
 		}
 	}
-	if (_launch_args) {
-		[_launch_args release];
-	}
 	_launch_args = [[NSArray alloc] initWithArray: tmp_argv copyItems: NO];
-	[tmp_argv release];
 
-	if (_env_variables) {
-		[_env_variables release];
-	}
 	_env_variables = [[NSDictionary alloc] initWithDictionary: tmp_env];
-	[tmp_env release];
 
 	free(arguments_ptr);
 
@@ -594,7 +582,7 @@ static const CFStringRef kLaunchServicesBundleID = CFSTR("com.apple.LaunchServic
 		char *buf = malloc(sizeof(*buf) * kSandboxContainerPathBufferSize);
 		int err = sandbox_container_path_for_pid(_pid, buf, kSandboxContainerPathBufferSize);
 		if (err == KERN_SUCCESS && strlen(buf) > 0) {
-			_sandbox_container_path = [[NSString stringWithUTF8String: buf] retain];
+			_sandbox_container_path = [NSString stringWithUTF8String: buf];
 		}
 
 		free(buf);
@@ -722,23 +710,19 @@ done: {
 	}
 	tmp = NULL;
 	if (CFDictionaryGetValueIfPresent(dictionary, kLSDisplayNameKey, &tmp)) {
-		if (_process_name) [_process_name release];
-		_process_name = [[NSString stringWithString: tmp] retain];
+		_process_name = [NSString stringWithString: (__bridge NSString * _Nonnull)(tmp)];
 	}
 	tmp = NULL;
 	if (CFDictionaryGetValueIfPresent(dictionary, kCFBundleIdentifierKey, &tmp)) {
-		if (_bundle_id) [_bundle_id release];
-		_bundle_id = [[NSString stringWithString: tmp] retain];
+		_bundle_id = [NSString stringWithString: (__bridge NSString * _Nonnull)(tmp)];
 	}
 	tmp = NULL;
 	if (CFDictionaryGetValueIfPresent(dictionary, kLSBundlePathKey, &tmp)) {
-		if (_bundle_path) [_bundle_path release];
-		_bundle_path = [[NSString stringWithString: tmp] retain];
+		_bundle_path = [NSString stringWithString: (__bridge NSString * _Nonnull)(tmp)];
 	}
 	tmp = NULL;
 	if (CFDictionaryGetValueIfPresent(dictionary, kLSExecutablePathKey, &tmp)) {
-		if (_executable_path) [_executable_path release];
-		_executable_path = [[NSString stringWithString: tmp] retain];
+		_executable_path = [NSString stringWithString: (__bridge NSString * _Nonnull)(tmp)];
 	}
 }
 
